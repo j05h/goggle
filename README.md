@@ -4,10 +4,10 @@ A CLI tool to browse and download games from your GOG.com library. Built because
 
 ## Install
 
-Requires Go 1.24+.
+Requires Go 1.26+.
 
 ```bash
-go install github.com/josh/goggle@latest
+go install github.com/j05h/goggle@latest
 ```
 
 Or build from source:
