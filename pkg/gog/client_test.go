@@ -11,10 +11,10 @@ import (
 
 func TestTokenExpired(t *testing.T) {
 	tests := []struct {
-		name     string
-		savedAt  time.Time
-		expires  int
-		wantExp  bool
+		name    string
+		savedAt time.Time
+		expires int
+		wantExp bool
 	}{
 		{
 			name:    "expired token",
