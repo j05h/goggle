@@ -40,7 +40,7 @@ func (c *Client) GetGameDetails(id int) (*GameDetails, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
@@ -139,7 +139,7 @@ func (c *Client) ResolveDownloadURL(manualURL string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// The endpoint either returns JSON with a downlink field, or redirects (3xx)
 	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
@@ -190,7 +190,7 @@ func (c *Client) DownloadFile(downloadURL, destDir string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("download request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return "", fmt.Errorf("download failed with status %d", resp.StatusCode)
@@ -211,7 +211,7 @@ func (c *Client) DownloadFile(downloadURL, destDir string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to create file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	pw := &ProgressWriter{
 		Total:  resp.ContentLength,

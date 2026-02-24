@@ -23,4 +23,4 @@ clean:
 	rm -f $(BINARY)
 
 deps:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint

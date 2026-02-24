@@ -46,7 +46,7 @@ func (c *Client) GetProductDetails(id int) (*ProductDetails, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
@@ -65,7 +65,7 @@ func (c *Client) GetOwnedGameIDs() ([]int, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
@@ -99,15 +99,17 @@ func (c *Client) GetProducts(ids []int) ([]Product, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer resp.Body.Close()
 
 		if resp.StatusCode != 200 {
 			body, _ := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
 			return nil, fmt.Errorf("failed to get products (%d): %s", resp.StatusCode, body)
 		}
 
 		var products []Product
-		if err := json.NewDecoder(resp.Body).Decode(&products); err != nil {
+		err = json.NewDecoder(resp.Body).Decode(&products)
+		_ = resp.Body.Close()
+		if err != nil {
 			return nil, err
 		}
 		all = append(all, products...)

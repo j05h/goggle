@@ -167,7 +167,7 @@ func TestAuthGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AuthGet: %v", err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	want := "Bearer my_token"
 	if gotAuth != want {
