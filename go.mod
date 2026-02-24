@@ -1,6 +1,6 @@
 module github.com/josh/goggle
 
-go 1.24.2
+go 1.26
 
 require (
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e // indirect
