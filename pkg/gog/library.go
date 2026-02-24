@@ -16,8 +16,52 @@ type Product struct {
 	Title string `json:"title"`
 }
 
+type ProductDetails struct {
+	ID          int    `json:"id"`
+	Title       string `json:"title"`
+	Slug        string `json:"slug"`
+	ReleaseDate string `json:"release_date"`
+	Links       struct {
+		PurchaseLink string `json:"purchase_link"`
+		ProductCard  string `json:"product_card"`
+		Support      string `json:"support"`
+		Forum        string `json:"forum"`
+	} `json:"links"`
+	ContentSystemCompatibility struct {
+		Windows bool `json:"windows"`
+		OSX     bool `json:"osx"`
+		Linux   bool `json:"linux"`
+	} `json:"content_system_compatibility"`
+	Languages   map[string]string `json:"languages"`
+	Description *struct {
+		Lead             string `json:"lead"`
+		Full             string `json:"full"`
+		WhatsCoolAboutIt string `json:"whats_cool_about_it"`
+	} `json:"description"`
+}
+
+func (c *Client) GetProductDetails(id int) (*ProductDetails, error) {
+	url := fmt.Sprintf("%s/products/%d?expand=description", c.apiBaseURL(), id)
+	resp, err := c.AuthGet(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get product details (%d): %s", resp.StatusCode, body)
+	}
+
+	var details ProductDetails
+	if err := json.NewDecoder(resp.Body).Decode(&details); err != nil {
+		return nil, err
+	}
+	return &details, nil
+}
+
 func (c *Client) GetOwnedGameIDs() ([]int, error) {
-	resp, err := c.AuthGet("https://embed.gog.com/user/data/games")
+	resp, err := c.AuthGet(c.embedBaseURL() + "/user/data/games")
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +93,7 @@ func (c *Client) GetProducts(ids []int) ([]Product, error) {
 		for j, id := range batch {
 			strs[j] = fmt.Sprintf("%d", id)
 		}
-		url := "https://api.gog.com/products?ids=" + strings.Join(strs, ",")
+		url := c.apiBaseURL() + "/products?ids=" + strings.Join(strs, ",")
 
 		resp, err := c.AuthGet(url)
 		if err != nil {

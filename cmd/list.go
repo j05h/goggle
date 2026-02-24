@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"html"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -64,9 +66,61 @@ var listCmd = &cobra.Command{
 		}
 
 		selected := products[idx]
-		fmt.Printf("Selected: %s (ID: %d)\n", selected.Title, selected.ID)
+
+		fmt.Printf("\nFetching details for %s...\n\n", selected.Title)
+		details, err := client.GetProductDetails(selected.ID)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("  %s\n", details.Title)
+		fmt.Printf("  %s\n\n", strings.Repeat("─", len(details.Title)))
+
+		if details.ReleaseDate != "" {
+			fmt.Printf("  Release Date:  %s\n", details.ReleaseDate)
+		}
+
+		var platforms []string
+		if details.ContentSystemCompatibility.Windows {
+			platforms = append(platforms, "Windows")
+		}
+		if details.ContentSystemCompatibility.OSX {
+			platforms = append(platforms, "macOS")
+		}
+		if details.ContentSystemCompatibility.Linux {
+			platforms = append(platforms, "Linux")
+		}
+		if len(platforms) > 0 {
+			fmt.Printf("  Platforms:     %s\n", strings.Join(platforms, ", "))
+		}
+
+		if len(details.Languages) > 0 {
+			langs := make([]string, 0, len(details.Languages))
+			for _, name := range details.Languages {
+				langs = append(langs, name)
+			}
+			sort.Strings(langs)
+			fmt.Printf("  Languages:     %s\n", strings.Join(langs, ", "))
+		}
+
+		if details.Links.ProductCard != "" {
+			fmt.Printf("  Store Page:    https://www.gog.com%s\n", details.Links.ProductCard)
+		}
+
+		if details.Description != nil && details.Description.Lead != "" {
+			fmt.Printf("\n  %s\n", stripHTML(details.Description.Lead))
+		}
+
+		fmt.Println()
 		return nil
 	},
+}
+
+var htmlTagRe = regexp.MustCompile(`<[^>]*>`)
+
+func stripHTML(s string) string {
+	s = htmlTagRe.ReplaceAllString(s, "")
+	return html.UnescapeString(s)
 }
 
 func init() {

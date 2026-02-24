@@ -14,7 +14,7 @@ import (
 const (
 	ClientID     = "46899977096215655"
 	ClientSecret = "9d85c43b1482497dbbce61f6e4aa173a433796eeae2ca8c5f6129f2dc4de46d9"
-	RedirectURI  = "http://localhost:6969/callback"
+	RedirectURI  = "https://embed.gog.com/on_login_success?origin=client"
 	AuthURL      = "https://auth.gog.com/auth"
 	TokenURL     = "https://auth.gog.com/token"
 )
@@ -31,8 +31,12 @@ func (t *Token) Expired() bool {
 }
 
 type Client struct {
-	HTTPClient *http.Client
-	Token      *Token
+	HTTPClient   *http.Client
+	Token        *Token
+	EmbedBaseURL string // default: "https://embed.gog.com"
+	APIBaseURL   string // default: "https://api.gog.com"
+	TokenURL     string // default: TokenURL constant
+	TokenPath    string // default: ~/.config/goggle/token.json
 }
 
 func tokenPath() (string, error) {
@@ -64,14 +68,51 @@ func SaveToken(t *Token) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(p), 0700); err != nil {
+	return SaveTokenTo(t, p)
+}
+
+func SaveTokenTo(t *Token, path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
 	data, err := json.MarshalIndent(t, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(p, data, 0600)
+	return os.WriteFile(path, data, 0600)
+}
+
+func LoadTokenFrom(path string) (*Token, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var t Token
+	if err := json.Unmarshal(data, &t); err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+func (c *Client) embedBaseURL() string {
+	if c.EmbedBaseURL != "" {
+		return c.EmbedBaseURL
+	}
+	return "https://embed.gog.com"
+}
+
+func (c *Client) apiBaseURL() string {
+	if c.APIBaseURL != "" {
+		return c.APIBaseURL
+	}
+	return "https://api.gog.com"
+}
+
+func (c *Client) tokenURL() string {
+	if c.TokenURL != "" {
+		return c.TokenURL
+	}
+	return TokenURL
 }
 
 func NewClient() (*Client, error) {
@@ -98,7 +139,7 @@ func (c *Client) RefreshAuth() error {
 		"grant_type":    {"refresh_token"},
 		"refresh_token": {c.Token.RefreshToken},
 	}
-	resp, err := c.HTTPClient.PostForm(TokenURL, data)
+	resp, err := c.HTTPClient.PostForm(c.tokenURL(), data)
 	if err != nil {
 		return err
 	}
@@ -113,6 +154,9 @@ func (c *Client) RefreshAuth() error {
 	}
 	t.SavedAt = time.Now()
 	c.Token = &t
+	if c.TokenPath != "" {
+		return SaveTokenTo(&t, c.TokenPath)
+	}
 	return SaveToken(&t)
 }
 

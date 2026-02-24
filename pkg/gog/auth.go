@@ -1,28 +1,17 @@
 package gog
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
-	"os/exec"
-	"runtime"
+	"strings"
 	"time"
-)
 
-func openBrowser(url string) error {
-	switch runtime.GOOS {
-	case "darwin":
-		return exec.Command("open", url).Start()
-	case "linux":
-		return exec.Command("xdg-open", url).Start()
-	default:
-		return exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
-	}
-}
+	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/launcher"
+)
 
 func Login() error {
 	authURL := fmt.Sprintf(
@@ -30,46 +19,45 @@ func Login() error {
 		AuthURL, ClientID, url.QueryEscape(RedirectURI),
 	)
 
-	codeCh := make(chan string, 1)
-	errCh := make(chan error, 1)
+	fmt.Println("Launching browser for GOG login...")
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
-		code := r.URL.Query().Get("code")
-		if code == "" {
-			errCh <- fmt.Errorf("no code in callback: %s", r.URL.String())
-			fmt.Fprintln(w, "Error: no code received. Check the CLI.")
-			return
-		}
-		codeCh <- code
-		fmt.Fprintln(w, "Login successful! You can close this tab.")
-	})
+	path, _ := launcher.LookPath()
+	u := launcher.New().Bin(path).Headless(false).MustLaunch()
 
-	listener, err := net.Listen("tcp", ":6969")
-	if err != nil {
-		return fmt.Errorf("failed to start callback server: %w", err)
-	}
+	browser := rod.New().ControlURL(u).MustConnect()
+	defer browser.MustClose()
 
-	server := &http.Server{Handler: mux}
-	go server.Serve(listener)
+	page := browser.MustPage(authURL)
 
-	fmt.Println("Opening browser for GOG login...")
-	if err := openBrowser(authURL); err != nil {
-		fmt.Printf("Could not open browser. Visit this URL manually:\n%s\n", authURL)
-	}
+	fmt.Println("Waiting for login (this will close automatically)...")
 
+	// Wait for the redirect to on_login_success with a code parameter
 	var code string
-	select {
-	case code = <-codeCh:
-	case err := <-errCh:
-		server.Shutdown(context.Background())
-		return err
-	case <-time.After(5 * time.Minute):
-		server.Shutdown(context.Background())
-		return fmt.Errorf("login timed out after 5 minutes")
+	err := rod.Try(func() {
+		page.Timeout(5 * time.Minute).MustWaitNavigation()
+
+		// Poll the URL until we see the success redirect with a code
+		for {
+			currentURL := page.MustEval(`() => window.location.href`).String()
+			if strings.Contains(currentURL, "on_login_success") {
+				parsed, err := url.Parse(currentURL)
+				if err == nil {
+					code = parsed.Query().Get("code")
+				}
+				if code != "" {
+					return
+				}
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+	})
+	if err != nil {
+		return fmt.Errorf("login failed: %w", err)
 	}
 
-	server.Shutdown(context.Background())
+	if code == "" {
+		return fmt.Errorf("no authorization code received")
+	}
 
 	return exchangeCode(code)
 }
@@ -89,7 +77,7 @@ func exchangeCode(code string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("token exchange failed (%d): %s", resp.StatusCode, body)
 	}

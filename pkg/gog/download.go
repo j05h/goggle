@@ -35,7 +35,7 @@ type DownlinkResponse struct {
 }
 
 func (c *Client) GetGameDetails(id int) (*GameDetails, error) {
-	url := fmt.Sprintf("https://embed.gog.com/account/gameDetails/%d.json", id)
+	url := fmt.Sprintf("%s/account/gameDetails/%d.json", c.embedBaseURL(), id)
 	resp, err := c.AuthGet(url)
 	if err != nil {
 		return nil, err
@@ -115,12 +115,40 @@ func FilterInstallersByOS(installers []Installer, targetOS string) []Installer {
 }
 
 func (c *Client) ResolveDownloadURL(manualURL string) (string, error) {
-	url := "https://embed.gog.com" + manualURL
-	resp, err := c.AuthGet(url)
+	rawURL := c.embedBaseURL() + manualURL
+
+	// Don't follow redirects — we want the Location header
+	noRedirectClient := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	req, err := http.NewRequest("GET", rawURL, nil)
+	if err != nil {
+		return "", err
+	}
+	if c.Token.Expired() {
+		if err := c.RefreshAuth(); err != nil {
+			return "", err
+		}
+	}
+	req.Header.Set("Authorization", "Bearer "+c.Token.AccessToken)
+
+	resp, err := noRedirectClient.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
+
+	// The endpoint either returns JSON with a downlink field, or redirects (3xx)
+	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+		loc := resp.Header.Get("Location")
+		if loc == "" {
+			return "", fmt.Errorf("redirect with no Location header")
+		}
+		return loc, nil
+	}
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)

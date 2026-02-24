@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -116,7 +117,7 @@ var downloadCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		destDir := filepath.Join(home, "GOG Games", selected.Title)
+		destDir := filepath.Join(home, "Downloads")
 
 		fmt.Printf("Downloading to %s...\n", destDir)
 		path, err := client.DownloadFile(dlURL, destDir)
@@ -125,6 +126,25 @@ var downloadCmd = &cobra.Command{
 		}
 
 		fmt.Printf("Done! Saved to %s\n", path)
+
+		if strings.HasSuffix(strings.ToLower(path), ".pkg") {
+			installPrompt := promptui.Select{
+				Label: fmt.Sprintf("Install %s?", filepath.Base(path)),
+				Items: []string{"Yes", "No"},
+			}
+			_, result, err := installPrompt.Run()
+			if err != nil {
+				return err
+			}
+			if result == "Yes" {
+				fmt.Printf("Running installer %s...\n", filepath.Base(path))
+				installCmd := exec.Command("open", path)
+				if err := installCmd.Run(); err != nil {
+					return fmt.Errorf("failed to open installer: %w", err)
+				}
+			}
+		}
+
 		return nil
 	},
 }
