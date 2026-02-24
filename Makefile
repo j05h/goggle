@@ -1,6 +1,6 @@
 BINARY = goggle
 
-.PHONY: build test lint vet fmt check clean
+.PHONY: build test lint vet fmt check clean deps
 
 build:
 	go build -o $(BINARY) .
@@ -21,3 +21,6 @@ check: vet lint test
 
 clean:
 	rm -f $(BINARY)
+
+deps:
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint
