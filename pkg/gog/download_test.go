@@ -146,7 +146,7 @@ func TestResolveDownloadURL(t *testing.T) {
 
 	t.Run("200 JSON response", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(DownlinkResponse{
+			_ = json.NewEncoder(w).Encode(DownlinkResponse{
 				Downlink: "https://cdn.example.com/downlink.bin",
 				Checksum: "abc123",
 			})

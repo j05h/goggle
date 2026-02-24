@@ -87,14 +87,17 @@ func TestSaveAndLoadToken(t *testing.T) {
 func TestRefreshAuth(t *testing.T) {
 	var gotParams map[string]string
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.ParseForm()
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		gotParams = map[string]string{
 			"client_id":     r.FormValue("client_id"),
 			"client_secret": r.FormValue("client_secret"),
 			"grant_type":    r.FormValue("grant_type"),
 			"refresh_token": r.FormValue("refresh_token"),
 		}
-		json.NewEncoder(w).Encode(Token{
+		_ = json.NewEncoder(w).Encode(Token{
 			AccessToken:  "new_access",
 			RefreshToken: "new_refresh",
 			ExpiresIn:    3600,
@@ -146,7 +149,7 @@ func TestAuthGet(t *testing.T) {
 	var gotAuth string
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
-		w.Write([]byte(`{"ok":true}`))
+		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	defer ts.Close()
 

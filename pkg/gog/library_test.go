@@ -28,7 +28,7 @@ func TestGetOwnedGameIDs(t *testing.T) {
 		if r.URL.Path != "/user/data/games" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-		json.NewEncoder(w).Encode(OwnedGamesResponse{Owned: []int{1, 2, 3}})
+		_ = json.NewEncoder(w).Encode(OwnedGamesResponse{Owned: []int{1, 2, 3}})
 	}))
 	defer ts.Close()
 
@@ -48,7 +48,7 @@ func TestGetOwnedGameIDs(t *testing.T) {
 func TestGetProducts(t *testing.T) {
 	t.Run("single batch", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode([]Product{
+			_ = json.NewEncoder(w).Encode([]Product{
 				{ID: 1, Title: "Game 1"},
 				{ID: 2, Title: "Game 2"},
 			})
@@ -75,7 +75,7 @@ func TestGetProducts(t *testing.T) {
 			for i, s := range idStrs {
 				products[i] = Product{Title: "Game " + s}
 			}
-			json.NewEncoder(w).Encode(products)
+			_ = json.NewEncoder(w).Encode(products)
 		}))
 		defer ts.Close()
 
@@ -107,7 +107,7 @@ func TestGetProductDetails(t *testing.T) {
 		if r.URL.Query().Get("expand") != "description" {
 			t.Error("missing expand=description query param")
 		}
-		json.NewEncoder(w).Encode(ProductDetails{
+		_ = json.NewEncoder(w).Encode(ProductDetails{
 			ID:    42,
 			Title: "Cool Game",
 			Slug:  "cool-game",
